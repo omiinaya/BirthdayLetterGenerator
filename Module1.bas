@@ -1,6 +1,28 @@
 Attribute VB_Name = "Module1"
 Option Explicit
 
+ Public Declare Function FindWindow Lib "user32" _
+                Alias "FindWindowA" _
+               (ByVal lpClassName As String, _
+                ByVal lpWindowName As String) As Long
+
+
+    Public Declare Function GetWindowLong Lib "user32" _
+                Alias "GetWindowLongA" _
+               (ByVal hWnd As Long, _
+                ByVal nIndex As Long) As Long
+
+
+    Public Declare Function SetWindowLong Lib "user32" _
+                Alias "SetWindowLongA" _
+               (ByVal hWnd As Long, _
+                ByVal nIndex As Long, _
+                ByVal dwNewLong As Long) As Long
+
+
+    Public Declare Function DrawMenuBar Lib "user32" _
+               (ByVal hWnd As Long) As Long
+
 Global wbPath As String
 Global tPath As String
 Global oPath As String
@@ -9,8 +31,8 @@ Global currentMonth As String
 Global currentGender As String
 Global currentAge As String
 Global fileList As Variant
-Global Word As Object
-Global Excel As Object
+'Global Word As Object
+'Global Excel As Object
 Global primaryFile As String
 Global primaryFilePath As String
 Global selectedFileName
@@ -168,6 +190,17 @@ Sub ReplaceTextFromTemplates()
          CloseWordObjects
 End Sub
 
+Sub HideBar(frm As Object)
+
+Dim Style As Long, Menu As Long, hWndForm As Long
+hWndForm = FindWindow("ThunderDFrame", frm.Caption)
+Style = GetWindowLong(hWndForm, &HFFF0)
+Style = Style And Not &HC00000
+SetWindowLong hWndForm, &HFFF0, Style
+DrawMenuBar hWndForm
+
+End Sub
+
 
 Sub main()
     
@@ -176,15 +209,19 @@ Sub main()
     CheckPrimaryExists
     ListCurrentFiles
     
-    Dim fName, lName, gender, bDay, Age, aLine1, aLine2, cCity, pCode, tName, tName2, tFilePath, birthYear, parsedDate, fileName, fmtDate, fmtDate2, currentName
-    Dim i, k
-    Dim ExcelDoc As Object
     
-    Set Excel = CreateObject("Excel.Application")
+    Dim fName, lName, gender, bDay, Age, aLine1, aLine2, cCity, pCode, tName, tName2, tFilePath, tFileName, birthYear, parsedDate, fileName, fmtDate, fmtDate2, currentName
+    Dim i, j, k, z
+    
+    Dim Word As Object
+    Dim Excel As Object
+    
     Set Word = CreateObject("Word.Application")
+    Set Excel = CreateObject("Excel.Application")
+    
     
     Excel.Visible = False
-    Word.Visible = False
+    Word.Visible = True
     
     With Excel.FileDialog(msoFileDialogFilePicker)
         .AllowMultiSelect = False
@@ -201,8 +238,9 @@ Sub main()
     progressBox.progressBar.Width = 1
     
     k = Workbooks(selectedFileName).Worksheets(1).Range("F1").CurrentRegion.Rows.Count
+    j = 1
     For i = 2 To k
-    
+        j = j + 1
         fName = Workbooks(selectedFileName).Worksheets(1).Range("C" & i)
         lName = Workbooks(selectedFileName).Worksheets(1).Range("D" & i)
         gender = Workbooks(selectedFileName).Worksheets(1).Range("E" & i)
@@ -217,8 +255,8 @@ Sub main()
         FormatGender (gender)
 
         tName = currentAge & " " & currentGender & ".dotx"
-        tName2 = "Document" & i & ".docx"
         tFilePath = tPath & "\" & tName
+        tFileName = "Document" & j - 1
 
         birthYear = Right(bDay, 4)
         parsedDate = Replace(bDay, birthYear, currentYear)
@@ -229,9 +267,10 @@ Sub main()
         currentName = fName & " " & lName
         
         If gender = "M" Or gender = "F" Then
-
+                
                 Dim WordDoc As Object
-                Set WordDoc = Word.Documents.Add(Template:=tFilePath, NewTemplate:=False, DocumentType:=0, Visible:=False)
+                'Set WordDoc = Nothing
+                Set WordDoc = Word.Documents.Add(Template:=tFilePath, NewTemplate:=False, DocumentType:=0, Visible:=True)
                 With WordDoc.Content.Find
                     .Execute FindText:="<<ClientFirstName>>", ReplaceWith:=fName, Replace:=wdReplaceAll
                     .Execute FindText:="<<ClientLastName>>", ReplaceWith:=lName, Replace:=wdReplaceAll
@@ -249,28 +288,42 @@ Sub main()
 
                 Dim LastPage: LastPage = WordDoc2.Sections.Count
                 WordDoc2.Sections(LastPage).Range.Paste
-                If i < k Then
+                
+                Word.Documents(tFileName).Close SaveChanges:=wdDoNotSaveChanges
+                
+                If i < k - 1 Then
                     WordDoc2.Sections.Add
                 End If
+                    
                 WordDoc2.SaveAs2 primaryFilePath, 16
+                
+                Set WordDoc = Nothing
+                Set WordDoc2 = Nothing
                 
                 Dim x: x = (i / k) * 100
                 Dim y: y = (x * progressBox.staticBar.Width) / 100
                 
                 progressBox.progressBar.Width = y
                 progressBox.progressText.Caption = currentName & " " & "(" & i - 1 & "/" & k - 1 & ")"
-                
-                Set WordDoc = Nothing
-                
-            End If
+        Else
+            j = j - 1
+        End If
     
         Debug.Print Now(), selectedFilePath, selectedFileName, fName, lName, gender, bDay, i
     Next i
     
+    z = Shell("powershell.exe kill -processname winword", vbHide)
     Workbooks(selectedFileName).Close SaveChanges:=False
+    Word.Quit SaveChanges:=wdDoNotSaveChanges
     MsgBox "Documents generated successfully."
         Unload progressBox
-        Word.Quit SaveChanges:=wdDoNotSaveChanges
+        Set WordDoc = Nothing
+        Set WordDoc2 = Nothing
         CloseWordObjects
     
 End Sub
+
+Sub lol()
+    Dim x: x = Shell("powershell.exe kill -processname winword", vbHide)
+End Sub
+
