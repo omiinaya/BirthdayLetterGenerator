@@ -31,8 +31,6 @@ Global currentMonth As String
 Global currentGender As String
 Global currentAge As String
 Global fileList As Variant
-'Global Word As Object
-'Global Excel As Object
 Global primaryFile As String
 Global primaryFilePath As String
 Global selectedFileName
@@ -175,7 +173,7 @@ Sub ReplaceTextFromTemplates()
             tFilePath = tPath & "\" & tName
 
                 Dim WordDoc As Object
-                Set WordDoc = Word.Documents.Open(tFilePath, AddToRecentFiles:=False, Visible:=True)
+                Set WordDoc = Word.Documents.Open(tFilePath, AddToRecentFiles:=False, Visible:=False)
                 With WordDoc.Content.Find
                     .Execute FindText:="<<Text To Replace>>", ReplaceWith:="<<Text To Replace With", Replace:=wdReplaceAll
                 End With
@@ -211,7 +209,7 @@ Sub main()
     
     
     Dim fName, lName, gender, bDay, Age, aLine1, aLine2, cCity, pCode, tName, tName2, tFilePath, tFileName, birthYear, parsedDate, fileName, fmtDate, fmtDate2, currentName
-    Dim i, j, k, z
+    Dim i, j, k, n, o, z
     
     Dim Word As Object
     Dim Excel As Object
@@ -221,7 +219,9 @@ Sub main()
     
     
     Excel.Visible = False
-    Word.Visible = True
+    Word.Visible = False
+    
+    'Word.ScreenUpdating = False
     
     With Excel.FileDialog(msoFileDialogFilePicker)
         .AllowMultiSelect = False
@@ -238,6 +238,7 @@ Sub main()
     progressBox.progressBar.Width = 1
     
     k = Workbooks(selectedFileName).Worksheets(1).Range("F1").CurrentRegion.Rows.Count
+    n = Word.Documents.Count
     j = 1
     For i = 2 To k
         j = j + 1
@@ -267,10 +268,10 @@ Sub main()
         currentName = fName & " " & lName
         
         If gender = "M" Or gender = "F" Then
-                
                 Dim WordDoc As Object
                 'Set WordDoc = Nothing
-                Set WordDoc = Word.Documents.Add(Template:=tFilePath, NewTemplate:=False, DocumentType:=0, Visible:=True)
+                Set WordDoc = Word.Documents.Add(Template:=tFilePath, NewTemplate:=False, DocumentType:=0, Visible:=False)
+                'Word.Visible = False
                 With WordDoc.Content.Find
                     .Execute FindText:="<<ClientFirstName>>", ReplaceWith:=fName, Replace:=wdReplaceAll
                     .Execute FindText:="<<ClientLastName>>", ReplaceWith:=lName, Replace:=wdReplaceAll
@@ -308,10 +309,10 @@ Sub main()
         Else
             j = j - 1
         End If
-    
-        Debug.Print Now(), selectedFilePath, selectedFileName, fName, lName, gender, bDay, i
+        Debug.Print Now(), fName, lName, gender, bDay, i, n
     Next i
     
+    'Word.ScreenUpdating = True
     z = Shell("powershell.exe kill -processname winword", vbHide)
     Workbooks(selectedFileName).Close SaveChanges:=False
     Word.Quit SaveChanges:=wdDoNotSaveChanges
@@ -326,4 +327,3 @@ End Sub
 Sub lol()
     Dim x: x = Shell("powershell.exe kill -processname winword", vbHide)
 End Sub
-
