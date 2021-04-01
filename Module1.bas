@@ -9,10 +9,12 @@ Global currentMonth As String
 Global currentGender As String
 Global currentAge As String
 Global fileList As Variant
-
 Global Word As Object
+Global Excel As Object
 Global primaryFile As String
 Global primaryFilePath As String
+Global selectedFileName
+Global selectedFilePath
 
 Sub Initialize()
     wbPath = ThisWorkbook.Path
@@ -60,22 +62,22 @@ Sub CreateEmptyWordDoc()
 End Sub
 
 Sub SortDataByDay() 'sorting by birth day (not year).
-    Dim Column As Range: Set Column = Application.Range("F:F")
+    Dim Column As Range: Set Column = Workbooks(selectedFileName).Worksheets(1).Range("F:F")
     Column.Insert Shift:=xlShiftToRight, CopyOrigin:=xlFormatFromRightOrBelow
 
     Dim i, originalValue, toRemove, parsedValue
-    Dim x: x = Range("G2")
-    Dim k: k = Range("G2").CurrentRegion.Rows.Count - 1
+    Dim x: x = Workbooks(selectedFileName).Worksheets(1).Range("G2")
+    Dim k: k = Workbooks(selectedFileName).Worksheets(1).Range("G2").CurrentRegion.Rows.Count - 1
     
     For i = 2 To k + 1
-        originalValue = Range("G" & i)
+        originalValue = Workbooks(selectedFileName).Worksheets(1).Range("G" & i)
         toRemove = Len(originalValue) - 5
         parsedValue = Left(originalValue, toRemove)
-            Range("F" & i).Value = parsedValue
+            Workbooks(selectedFileName).Worksheets(1).Range("F" & i).Value = parsedValue
     Next i
     
-    Range("A:O").Sort Key1:=Range("F1"), Order1:=xlAscending, Header:=xlYes
-    Range("F:F").Delete
+    Workbooks(selectedFileName).Worksheets(1).Range("A:O").Sort Key1:=Range("F1"), Order1:=xlAscending, Header:=xlYes
+    Workbooks(selectedFileName).Worksheets(1).Range("F:F").Delete
 End Sub
 
 Sub FormatGender(gender)
@@ -88,9 +90,10 @@ Sub FormatGender(gender)
     End If
 End Sub
 
-Sub FormatAge(age)
-    Dim toRemove As String: toRemove = Right(age, 6)
-    currentAge = Trim(Replace(age, toRemove, ""))
+Sub FormatAge(Age)
+    Dim toRemove As String: toRemove = Right(Age, 6)
+    currentAge = CStr(CInt(Trim(Replace(Age, toRemove, ""))) + 1)
+    Debug.Print currentAge
 End Sub
 
 Sub ListCurrentFiles()
@@ -126,10 +129,9 @@ End Sub
 
 Sub ReplaceTextFromTemplates()
     Dim tName, tName2, tFilePath, fileName, fileName2
-    Dim fName, lName, gender, bDay, age, aLine1, aLine2, cCity, pCode, birthYear, parsedDate, fmtDate, fmtDate2, currentName As String
     Dim i As Integer
     Dim k: k = 201
-    Debug.Print k
+    'Debug.Print k
         Initialize
         CloseWordObjects
         ListCurrentFiles
@@ -150,14 +152,6 @@ Sub ReplaceTextFromTemplates()
             tName2 = "Document" & i & ".docx"
             tFilePath = tPath & "\" & tName
 
-            birthYear = Right(bDay, 4)
-            parsedDate = Replace(bDay, birthYear, currentYear)
-            fmtDate = Format(parsedDate, "mmmm dd, yyyy")
-            fmtDate2 = Format(parsedDate, "mmmm dd") & " " & currentYear & " " & Format(Now(), "hh-mm-ss")
-
-            fileName = oPath & "\Birthday Letters For " & currentMonth & ".docx"
-            currentName = fName & " " & lName
-
                 Dim WordDoc As Object
                 Set WordDoc = Word.Documents.Open(tFilePath, AddToRecentFiles:=False, Visible:=True)
                 With WordDoc.Content.Find
@@ -174,54 +168,70 @@ Sub ReplaceTextFromTemplates()
          CloseWordObjects
 End Sub
 
+
 Sub main()
-    Dim tName, tName2, tFilePath, fileName, fileName2
-    Dim fName, lName, gender, bDay, age, aLine1, aLine2, cCity, pCode, birthYear, parsedDate, fmtDate, fmtDate2, currentName As String
-    Dim i As Integer
-    Dim k: k = Range("F1").CurrentRegion.Rows.Count
-    Debug.Print k
-    If k > 1 Then
-        Initialize
-        CloseWordObjects
-        CheckPrimaryExists
-        SortDataByDay
-        ListCurrentFiles
+    
+    Initialize
+    CloseWordObjects
+    CheckPrimaryExists
+    ListCurrentFiles
+    
+    Dim fName, lName, gender, bDay, Age, aLine1, aLine2, cCity, pCode, tName, tName2, tFilePath, birthYear, parsedDate, fileName, fmtDate, fmtDate2, currentName
+    Dim i, k
+    Dim ExcelDoc As Object
+    
+    Set Excel = CreateObject("Excel.Application")
+    Set Word = CreateObject("Word.Application")
+    
+    Excel.Visible = False
+    Word.Visible = False
+    
+    With Excel.FileDialog(msoFileDialogFilePicker)
+        .AllowMultiSelect = False
+        .Filters.Add "Excel Files", "*.xlsx; *.xlsm; *.xls; *.xlsb", 1
+        .Show
+        selectedFilePath = .SelectedItems(1)
+        selectedFileName = Dir(selectedFilePath)
+    End With
+    Workbooks.Open selectedFilePath
+    
+    SortDataByDay
+    
+    progressBox.Show vbModeless
+    progressBox.progressBar.Width = 1
+    
+    k = Workbooks(selectedFileName).Worksheets(1).Range("F1").CurrentRegion.Rows.Count
+    For i = 2 To k
+    
+        fName = Workbooks(selectedFileName).Worksheets(1).Range("C" & i)
+        lName = Workbooks(selectedFileName).Worksheets(1).Range("D" & i)
+        gender = Workbooks(selectedFileName).Worksheets(1).Range("E" & i)
+        bDay = Workbooks(selectedFileName).Worksheets(1).Range("F" & i)
+        Age = Workbooks(selectedFileName).Worksheets(1).Range("G" & i)
+        aLine1 = Workbooks(selectedFileName).Worksheets(1).Range("J" & i)
+        aLine2 = Workbooks(selectedFileName).Worksheets(1).Range("K" & i)
+        cCity = Workbooks(selectedFileName).Worksheets(1).Range("L" & i)
+        pCode = Workbooks(selectedFileName).Worksheets(1).Range("M" & i)
+        
+        FormatAge (Age)
+        FormatGender (gender)
 
-        Set Word = CreateObject("Word.Application")
+        tName = currentAge & " " & currentGender & ".dotx"
+        tName2 = "Document" & i & ".docx"
+        tFilePath = tPath & "\" & tName
 
-        progressBox.Show vbModeless
-        progressBox.progressBar.Width = 1
+        birthYear = Right(bDay, 4)
+        parsedDate = Replace(bDay, birthYear, currentYear)
+        fmtDate = Format(parsedDate, "mmmm dd, yyyy")
+        fmtDate2 = Format(parsedDate, "mmmm dd") & " " & currentYear & " " & Format(Now(), "hh-mm-ss")
 
-        For i = 2 To k + 1
-            fName = Range("C" & i)
-            lName = Range("D" & i)
-            gender = Range("E" & i)
-            bDay = Range("F" & i)
-            age = Range("G" & i)
-            aLine1 = Range("J" & i)
-            aLine2 = Range("K" & i)
-            cCity = Range("L" & i)
-            pCode = Range("M" & i)
-
-            FormatAge (age)
-            FormatGender (gender)
-
-            tName = currentAge & " " & currentGender & ".dotx"
-            tName2 = "Document" & i & ".docx"
-            tFilePath = tPath & "\" & tName
-
-            birthYear = Right(bDay, 4)
-            parsedDate = Replace(bDay, birthYear, currentYear)
-            fmtDate = Format(parsedDate, "mmmm dd, yyyy")
-            fmtDate2 = Format(parsedDate, "mmmm dd") & " " & currentYear & " " & Format(Now(), "hh-mm-ss")
-
-            fileName = oPath & "\Birthday Letters For " & currentMonth & ".docx"
-            currentName = fName & " " & lName
-
-            If gender = "M" Or gender = "F" Then
+        fileName = oPath & "\Birthday Letters For " & currentMonth & ".docx"
+        currentName = fName & " " & lName
+        
+        If gender = "M" Or gender = "F" Then
 
                 Dim WordDoc As Object
-                Set WordDoc = Word.Documents.Add(Template:=tFilePath, NewTemplate:=False, DocumentType:=0, Visible:=True)
+                Set WordDoc = Word.Documents.Add(Template:=tFilePath, NewTemplate:=False, DocumentType:=0, Visible:=False)
                 With WordDoc.Content.Find
                     .Execute FindText:="<<ClientFirstName>>", ReplaceWith:=fName, Replace:=wdReplaceAll
                     .Execute FindText:="<<ClientLastName>>", ReplaceWith:=lName, Replace:=wdReplaceAll
@@ -235,8 +245,7 @@ Sub main()
                 WordDoc.Sections(1).Range.Copy
 
                 Dim WordDoc2 As Object
-                Set WordDoc2 = Word.Documents.Open(primaryFilePath, AddToRecentFiles:=False, Visible:=True)
-
+                Set WordDoc2 = Word.Documents.Open(primaryFilePath, AddToRecentFiles:=False, Visible:=False)
 
                 Dim LastPage: LastPage = WordDoc2.Sections.Count
                 WordDoc2.Sections(LastPage).Range.Paste
@@ -244,22 +253,24 @@ Sub main()
                     WordDoc2.Sections.Add
                 End If
                 WordDoc2.SaveAs2 primaryFilePath, 16
-
+                
                 Dim x: x = (i / k) * 100
                 Dim y: y = (x * progressBox.staticBar.Width) / 100
-
+                
                 progressBox.progressBar.Width = y
                 progressBox.progressText.Caption = currentName & " " & "(" & i - 1 & "/" & k - 1 & ")"
-
-                Debug.Print Now(), "Iteration: " & i, "Name: " & currentName
+                
+                Set WordDoc = Nothing
+                
             End If
-
-         Next i
-         MsgBox "Documents generated successfully."
-         Unload progressBox
-         Word.Quit SaveChanges:=wdDoNotSaveChanges
-         CloseWordObjects
-    Else
-        MsgBox "There is no data to process."
-    End If
+    
+        Debug.Print Now(), selectedFilePath, selectedFileName, fName, lName, gender, bDay, i
+    Next i
+    
+    Workbooks(selectedFileName).Close SaveChanges:=False
+    MsgBox "Documents generated successfully."
+        Unload progressBox
+        Word.Quit SaveChanges:=wdDoNotSaveChanges
+        CloseWordObjects
+    
 End Sub
